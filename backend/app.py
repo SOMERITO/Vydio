@@ -59,7 +59,11 @@ def validate_video_url(value: str) -> str:
     parsed = urlparse(value.strip())
     if parsed.scheme != "https" or not parsed.hostname:
         raise HTTPException(status_code=422, detail="Usa un enlace HTTPS público.")
-    if parsed.username or parsed.password or parsed.port not in (None, 443):
+    try:
+        port = parsed.port
+    except ValueError:
+        raise HTTPException(status_code=422, detail="El enlace contiene un puerto no válido.") from None
+    if parsed.username or parsed.password or port not in (None, 443):
         raise HTTPException(status_code=422, detail="El enlace contiene credenciales o un puerto no permitido.")
     host = parsed.hostname.lower().rstrip(".")
     try:
@@ -139,7 +143,7 @@ def extract_video_info(url: str) -> dict[str, Any]:
         formats = info.get("formats") or []
         video_formats = [
             item for item in formats
-            if item.get("vcodec") not in (None, "none") and item.get("height")
+            if item.get("vcodec") not in (None, "none") and item.get("height") and not item.get("has_drm")
         ]
         if not video_formats:
             raise ValueError("No se encontraron formatos de video descargables.")
@@ -155,7 +159,7 @@ def extract_video_info(url: str) -> dict[str, Any]:
                 if score > old_score:
                     by_height[height] = item
         available = []
-        for height in sorted(by_height.keys(), reverse=True):
+        for height in sorted(by_height.keys()):
             item = by_height[height]
             size = item.get("filesize") or item.get("filesize_approx")
             available.append({
@@ -173,7 +177,7 @@ def extract_video_info(url: str) -> dict[str, Any]:
             "extractor": info.get("extractor_key") or info.get("extractor"),
             "thumbnail": info.get("thumbnail"),
             "available_heights": available,
-            "best_height": available[0]["height"],
+            "best_height": max(item["height"] for item in available),
         }
 
 
@@ -341,7 +345,7 @@ def create_download(payload: DownloadRequest, request: Request) -> dict[str, Any
 
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str, request: Request) -> dict[str, Any]:
-    rate_limit(request)
+    # Polling is frequent while a job runs; rate-limit job creation instead.
     cleanup_expired_jobs()
     with lock:
         item = jobs.get(job_id)
