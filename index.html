@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#090d18" />
+  <meta name="description" content="Vydio: prepara descargas de video desde enlaces compatibles y elige la calidad." />
+  <title>Vydio — Video downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Vydio inicio"><span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h10.8a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2H4a2.2 2.2 0 0 1-2.2-2.2V7.7A2.2 2.2 0 0 1 4 5.5Z"/><path d="m17 10 5-3v10l-5-3"/></svg></span><span>vydio</span></a>
+    <div class="topbar-right"><span class="availability"><i></i> Proyecto en desarrollo</span><a class="github-link" href="https://github.com/SOMERITO/Vydio" target="_blank" rel="noreferrer">GitHub <span>↗</span></a></div>
+  </header>
+
+  <main class="main">
+    <section class="hero">
+      <div class="eyebrow"><span class="sparkle">✦</span> VIDEO DOWNLOADER MULTIPLATAFORMA</div>
+      <h1>Tus videos.<br><span>Tu calidad.</span></h1>
+      <p class="hero-copy">Pega un enlace y prepara tu descarga. Vydio priorizará siempre la mejor calidad disponible.</p>
+
+      <section class="download-panel" aria-labelledby="panel-title">
+        <label class="field-label" for="video-url">ENLACE DEL VIDEO</label>
+        <div class="url-input-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5a4.5 4.5 0 0 0 6.36 0l3-3a4.5 4.5 0 0 0-6.36-6.36l-1.72 1.72"/><path d="M14 10.5a4.5 4.5 0 0 0-6.36 0l-3 3A4.5 4.5 0 0 0 11 19.86l1.72-1.72"/></svg>
+          <input id="video-url" type="url" inputmode="url" placeholder="https://www.instagram.com/reel/..." autocomplete="off" spellcheck="false" />
+          <button class="paste-btn" id="paste-btn" type="button">Pegar</button>
+        </div>
+        <div class="controls-row">
+          <div class="quality-control">
+            <div class="quality-label">CALIDAD</div>
+            <div class="quality-options" role="group" aria-label="Modo de calidad">
+              <button type="button" class="quality-option selected" data-mode="auto" aria-pressed="true"><span class="auto-dot"></span> Automática <b>MAX</b></button>
+              <button type="button" class="quality-option" data-mode="manual" aria-pressed="false"><span class="sliders">☷</span> Elegir calidad</button>
+            </div>
+          </div>
+          <button id="analyze-btn" class="analyze-btn" type="button"><span>Analizar enlace</span><span class="arrow">→</span></button>
+        </div>
+        <div class="manual-quality hidden" id="manual-quality">
+          <label for="quality-select">Resolución preferida</label>
+          <select id="quality-select">
+            <option value="best">Mejor disponible</option>
+            <option value="2160">4K · 2160p</option>
+            <option value="1440">2K · 1440p</option>
+            <option value="1080">Full HD · 1080p</option>
+            <option value="720">HD · 720p</option>
+            <option value="480">480p</option>
+            <option value="360">360p</option>
+            <option value="240">240p</option>
+            <option value="144">144p</option>
+          </select>
+          <p>Solo se ofrecerán resoluciones que la fuente autorizada realmente tenga disponibles.</p>
+        </div>
+        <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+      </section>
+
+      <div class="platforms"><span>DISEÑADO PARA ENLACES COMPATIBLES</span><div class="platform-list"><span>Instagram</span><span>TikTok</span><span>Facebook</span><span>YouTube*</span><span>X</span></div></div>
+      <p class="legal-note">*La compatibilidad depende de las condiciones de cada plataforma. Descarga únicamente contenido propio o cuyo uso tengas autorizado.</p>
+    </section>
+
+    <section class="features" aria-label="Características">
+      <article class="feature-card"><div class="feature-icon">✧</div><h2>Mejor calidad primero</h2><p>El modo automático prioriza la resolución y calidad más altas que la fuente permita.</p></article>
+      <article class="feature-card"><div class="feature-icon">⌘</div><h2>Control manual</h2><p>Elige una resolución inferior cuando necesites ahorrar espacio o datos.</p></article>
+      <article class="feature-card"><div class="feature-icon">↗</div><h2>Simple y directo</h2><p>Una interfaz clara, adaptable a computadora y celular, sin pedir tu contraseña social.</p></article>
+    </section>
+    <section class="notice"><span class="notice-icon">i</span><p><strong>Estado de desarrollo:</strong> esta primera versión contiene la interfaz y la selección de calidad. El análisis y la descarga requieren conectar un backend compatible; el botón no simula una descarga ni solicita credenciales.</p></section>
+  </main>
+
+  <footer><a class="brand footer-brand" href="#"><span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h10.8a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2H4a2.2 2.2 0 0 1-2.2-2.2V7.7A2.2 2.2 0 0 1 4 5.5Z"/><path d="m17 10 5-3v10l-5-3"/></svg></span><span>vydio</span></a><span>© 2026 Vydio · Built for creators</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>
