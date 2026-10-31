@@ -143,6 +143,7 @@ async function analyzeVideo() {
       option.textContent = item.label + (item.ext ? " · " + item.ext.toUpperCase() : "");
       qualitySelect.appendChild(option);
     });
+    qualitySelect.value = String(data.best_height);
     resultsPanel.classList.remove("hidden");
     if (qualityMode === "manual") manualQuality.classList.remove("hidden");
     updateDownloadLabel();
