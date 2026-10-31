@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#090d18" />
-  <meta name="description" content="Vydio: prepara descargas de video desde enlaces compatibles y elige la calidad." />
+  <meta name="description" content="Vydio analiza enlaces compatibles y prepara descargas en la mejor calidad disponible." />
   <title>Vydio — Video downloader</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,19 +44,25 @@
         <div class="manual-quality hidden" id="manual-quality">
           <label for="quality-select">Resolución preferida</label>
           <select id="quality-select">
-            <option value="best">Mejor disponible</option>
-            <option value="2160">4K · 2160p</option>
-            <option value="1440">2K · 1440p</option>
-            <option value="1080">Full HD · 1080p</option>
-            <option value="720">HD · 720p</option>
-            <option value="480">480p</option>
-            <option value="360">360p</option>
-            <option value="240">240p</option>
-            <option value="144">144p</option>
+            <option value="" selected disabled>Primero analiza el enlace</option>
           </select>
-          <p>Solo se ofrecerán resoluciones que la fuente autorizada realmente tenga disponibles.</p>
+          <p>Solo aparecerán resoluciones detectadas en el enlace analizado.</p>
         </div>
         <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+        <section id="analysis-results" class="analysis-results hidden" aria-live="polite">
+          <div class="analysis-heading">
+            <div><span class="result-kicker">VIDEO DETECTADO</span><h2 id="analysis-title">—</h2><p id="analysis-source">—</p></div>
+            <div class="best-quality"><span>MEJOR CALIDAD</span><strong id="best-quality">—</strong></div>
+          </div>
+          <div class="download-actions">
+            <button id="download-btn" class="analyze-btn" type="button"><span id="download-label">Descargar máxima calidad</span><span class="arrow">↓</span></button>
+          </div>
+          <div id="download-progress" class="download-progress hidden">
+            <div class="progress-caption"><span id="progress-message">Preparando descarga…</span><strong id="progress-value">0%</strong></div>
+            <div class="progress-track"><div id="progress-bar"></div></div>
+          </div>
+          <a id="file-link" class="file-link hidden" href="#" rel="nofollow"><span>↓</span> Descargar archivo preparado</a>
+        </section>
       </section>
 
       <div class="platforms"><span>DISEÑADO PARA ENLACES COMPATIBLES</span><div class="platform-list"><span>Instagram</span><span>TikTok</span><span>Facebook</span><span>YouTube*</span><span>X</span></div></div>
@@ -68,10 +74,11 @@
       <article class="feature-card"><div class="feature-icon">⌘</div><h2>Control manual</h2><p>Elige una resolución inferior cuando necesites ahorrar espacio o datos.</p></article>
       <article class="feature-card"><div class="feature-icon">↗</div><h2>Simple y directo</h2><p>Una interfaz clara, adaptable a computadora y celular, sin pedir tu contraseña social.</p></article>
     </section>
-    <section class="notice"><span class="notice-icon">i</span><p><strong>Estado de desarrollo:</strong> esta primera versión contiene la interfaz y la selección de calidad. El análisis y la descarga requieren conectar un backend compatible; el botón no simula una descarga ni solicita credenciales.</p></section>
+    <section class="notice"><span class="notice-icon">i</span><p><strong>Uso responsable:</strong> Vydio solo procesa enlaces públicos compatibles. No solicita contraseñas ni intenta acceder a contenido privado, saltar inicios de sesión o eliminar DRM. La compatibilidad puede variar cuando las plataformas cambian sus sistemas.</p></section>
   </main>
 
   <footer><a class="brand footer-brand" href="#"><span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h10.8a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2H4a2.2 2.2 0 0 1-2.2-2.2V7.7A2.2 2.2 0 0 1 4 5.5Z"/><path d="m17 10 5-3v10l-5-3"/></svg></span><span>vydio</span></a><span>© 2026 Vydio · Built for creators</span></footer>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
