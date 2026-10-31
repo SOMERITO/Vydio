@@ -2,43 +2,61 @@
 
 **Your videos. Your quality.**
 
-Vydio is a multiplatform video-download interface prototype. Its default behavior is to request the highest available quality; manual mode lets the user request a lower resolution when the source provides it.
+Vydio is a web frontend plus a separate API for analyzing supported public video links and preparing downloads. Automatic mode requests the best available quality; manual mode lets the user choose from resolutions actually returned by the source.
 
-## Current status
+## Current implementation
 
-This repository currently contains the responsive frontend and interaction scaffolding. It does **not** yet download or extract videos. A backend must be implemented and connected before the Analyze/Download flow can work.
+- Responsive static frontend (GitHub Pages compatible).
+- API endpoint for analyzing supported links and listing available video heights.
+- Download jobs with status polling and progress.
+- Automatic quality selection or manual maximum-height selection.
+- Temporary file storage with expiry cleanup, file-size/duration limits, request throttling and a small concurrent-download limit.
+- No platform passwords, cookies, session tokens, private-content access, DRM circumvention or login-wall bypass.
+
+The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
 
 ## Run locally
 
-Open `index.html` in a browser, or serve the directory with any static web server.
+Requirements: Python 3.12+, FFmpeg, and a current yt-dlp-supported environment.
 
-## Quality behavior
+```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app:app --reload --port 8000
+```
 
-- **Automatic (default):** request the best available video and audio streams supported by the source.
-- **Manual:** request the selected resolution, but only offer resolutions actually available.
-- Never upscale or claim a resolution that the source does not provide.
-- If video and audio are separate streams, the backend must mux them into a final file.
+In the repository root, edit `config.js`:
 
-## Planned architecture
+```js
+window.VYDIO_API_BASE = "http://localhost:8000";
+```
 
-- Frontend: static HTML, CSS and JavaScript (GitHub Pages compatible).
-- Backend: separate service for authorized source analysis, stream selection and file processing.
-- Processing should respect each platform's terms, copyright, privacy settings and access controls. Do not bypass DRM, private content, login walls or technical restrictions.
-- Never ask users for their social-media passwords or store platform session cookies.
+Serve the frontend from a local static server (for example, `python -m http.server 5500`) and open it in the browser.
 
-## Deploy the frontend with GitHub Pages
+## Deploy the API with Render
 
-1. Open **Settings → Pages** in this repository.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select branch `main` and folder `/(root)`.
-4. Save. GitHub will publish the static frontend when deployment completes.
+1. Sign in to Render and choose **New → Blueprint**.
+2. Connect `SOMERITO/Vydio` and let Render read the root `render.yaml`.
+3. Create the `vydio-api` web service. The Dockerfile installs FFmpeg and the Python dependencies.
+4. When Render gives the service URL, edit `config.js` and set `window.VYDIO_API_BASE` to that origin, e.g. `https://vydio-api.onrender.com`.
+5. Commit the change. Keep the origin in `ALLOWED_ORIGINS` aligned with the GitHub Pages origin if you use a custom domain.
+6. Publish the frontend using **Settings → Pages → Deploy from a branch → main → /(root)**.
 
-GitHub Pages only hosts static files; it cannot run the video-processing backend.
+The Render free instance may sleep when idle, so the first request after inactivity can take longer. Local temporary downloads are not permanent storage; completed files expire after the configured TTL and may be lost when the service restarts.
 
-## Next development milestones
+## API
 
-1. Connect a backend for sources that explicitly permit downloading.
-2. Add source capability detection and return truthful format/quality options.
-3. Add secure temporary storage, size/time limits and cleanup.
-4. Add progress, cancellation, and robust errors.
-5. Add automated tests and deployment checks.
+- `GET /health`
+- `POST /api/analyze` with `{"url":"https://..." }`
+- `POST /api/download` with `{"url":"https://...","quality_mode":"auto"}` or `{"url":"https://...","quality_mode":"manual","height":720}`
+- `GET /api/jobs/{job_id}`
+- `GET /api/jobs/{job_id}/file`
+
+## Limits and responsible use
+
+Defaults: 512 MiB maximum file size, 45 minutes maximum duration, two simultaneous jobs, 12 API requests per minute per client and 30-minute job/file expiry. Tune these environment variables for your deployment.
+
+Only download media that you own or are authorized to save, and follow the source platform's terms and applicable law. Vydio only accepts HTTPS links from its configured platform allowlist. It does not bypass DRM, private accounts, paywalls, login requirements or access controls. The server is a public service once deployed; review resource limits and hosting costs before sharing it widely.
