@@ -1,0 +1,24 @@
+name: Vydio backend checks
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-checks.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-checks.yml"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q backend
