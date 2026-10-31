@@ -200,7 +200,7 @@ def public_error(exc: Exception) -> str:
 app = FastAPI(title="Vydio API", version=APP_VERSION, docs_url="/docs" if os.getenv("ENABLE_API_DOCS") == "true" else None)
 origins = [item.strip() for item in os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:8000,http://127.0.0.1:8000,https://somerito.github.io",
+    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,https://somerito.github.io",
 ).split(",") if item.strip()]
 app.add_middleware(
     CORSMiddleware,
