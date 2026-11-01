@@ -468,15 +468,69 @@ urlInput.addEventListener("keydown", event => {
   if (event.key === "Enter") analyzeVideo();
 });
 
+let apiCheckInProgress = false;
+let apiRetryTimer = null;
+
+function updateApiIndicator(label, state, details = "") {
+  if (!apiIndicator) return;
+  apiIndicator.replaceChildren();
+  const dot = document.createElement("i");
+  apiIndicator.append(dot, document.createTextNode(" " + label));
+  apiIndicator.classList.toggle("connected", state === "connected");
+  apiIndicator.classList.toggle("disconnected", state === "disconnected");
+  apiIndicator.classList.toggle("checking", state === "checking");
+  apiIndicator.dataset.state = state;
+  apiIndicator.title = details || label;
+}
+
 async function checkApi() {
-  if (!API_BASE) return;
+  if (!API_BASE) {
+    updateApiIndicator("API no configurada", "disconnected");
+    return;
+  }
+  if (apiCheckInProgress) return;
+  apiCheckInProgress = true;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  updateApiIndicator("Comprobando servicio…", "checking");
+
   try {
-    const response = await fetch(apiUrl("/health"));
-    if (!response.ok) throw new Error("API unavailable");
-    apiIndicator.innerHTML = "<i></i> API conectada";
-    apiIndicator.classList.add("connected");
-  } catch {
-    apiIndicator.innerHTML = "<i></i> API sin conexión";
+    const response = await fetch(apiUrl("/health"), {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Accept": "application/json" },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error("El servidor respondió HTTP " + response.status);
+    const health = await response.json();
+    if (health.status !== "ok" || health.service !== "vydio-api") {
+      throw new Error("La respuesta no corresponde a la API de Vydio.");
+    }
+
+    const version = health.version ? "API v" + health.version : "API conectada";
+    updateApiIndicator("API conectada", "connected", version);
+    window.VYDIO_API_HEALTH = health;
+    if (apiRetryTimer) {
+      clearTimeout(apiRetryTimer);
+      apiRetryTimer = null;
+    }
+  } catch (error) {
+    const timedOut = controller.signal.aborted;
+    updateApiIndicator(
+      timedOut ? "Servidor despertando…" : "API sin conexión · reintentando",
+      "disconnected",
+      error?.message || "No fue posible consultar la API."
+    );
+    if (!apiRetryTimer) {
+      apiRetryTimer = setTimeout(() => {
+        apiRetryTimer = null;
+        checkApi();
+      }, 15000);
+    }
+  } finally {
+    clearTimeout(timeoutId);
+    apiCheckInProgress = false;
   }
 }
 if (!API_BASE) setupApiLink?.classList.remove("hidden");
