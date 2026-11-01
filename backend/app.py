@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import os
 import shutil
 import threading
@@ -43,6 +44,7 @@ jobs: dict[str, dict[str, Any]] = {}
 request_times: dict[str, list[float]] = {}
 lock = threading.RLock()
 executor = ThreadPoolExecutor(max_workers=MAX_ACTIVE_DOWNLOADS, thread_name_prefix="vydio-download")
+logger = logging.getLogger("vydio")
 
 
 class AnalyzeRequest(BaseModel):
@@ -184,6 +186,25 @@ def extract_video_info(url: str) -> dict[str, Any]:
 def public_error(exc: Exception) -> str:
     message = str(exc).strip()
     lowered = message.lower()
+    if any(term in lowered for term in (
+        "no supported javascript runtime", "javascript runtime", "js challenge",
+        "challenge solver", "signature solving", "nsig extraction failed", "yt-dlp-ejs",
+    )):
+        return "Falta o no está disponible el motor JavaScript que YouTube necesita para resolver sus desafíos. Vydio está preparando una actualización del servidor; vuelve a intentarlo después del despliegue."
+    if any(term in lowered for term in (
+        "sign in to confirm", "confirm you're not a bot", "confirm you’re not a bot",
+        "not a bot", "consent.youtube.com",
+    )):
+        return "YouTube está solicitando una verificación o inicio de sesión. Vydio no puede saltarse ese control; prueba más tarde o con otro enlace público."
+    if any(term in lowered for term in (
+        "not available in your country", "geo-restricted", "blocked in your country",
+    )):
+        return "Este video tiene una restricción geográfica y no está disponible para el servidor de Vydio."
+    if any(term in lowered for term in (
+        "video unavailable", "this video is unavailable", "private video",
+        "video is private", "has been removed", "account associated with this video has been terminated",
+    )):
+        return "La plataforma indica que el video no está disponible públicamente, es privado o fue retirado."
     if any(term in lowered for term in ("login", "log in", "cookie", "private", "authentication", "checkpoint", "rate-limit", "too many requests")):
         return "La plataforma exige iniciar sesión, el contenido es privado o hay un límite temporal. Vydio no solicita credenciales ni intenta saltar esos controles."
     if "unsupported url" in lowered or "no suitable extractor" in lowered:
@@ -211,8 +232,16 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "vydio-api", "version": APP_VERSION}
+def health() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "service": "vydio-api",
+        "version": APP_VERSION,
+        "capabilities": {
+            "youtube_js_runtime": shutil.which("deno") is not None,
+            "ffmpeg": shutil.which("ffmpeg") is not None,
+        },
+    }
 
 
 @app.post("/api/analyze")
@@ -224,6 +253,7 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("Video analysis failed for host=%s", urlparse(safe_url).hostname)
         raise HTTPException(status_code=422, detail=public_error(exc)) from None
     return {"ok": True, **info}
 
@@ -313,6 +343,7 @@ def run_download(job_id: str, url: str, quality_mode: str, height: int | None, d
             updated_at=now(),
         )
     except Exception as exc:
+        logger.exception("Download job failed for job_id=%s", job_id)
         set_job(job_id, status="error", message=public_error(exc), error=True, updated_at=now())
 
 
