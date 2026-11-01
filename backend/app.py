@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+from importlib.metadata import PackageNotFoundError, version as package_version
 import shutil
 import threading
 import time
@@ -19,7 +20,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.2.2"
 ROOT = Path(os.getenv("VYDIO_TEMP_DIR", "/tmp/vydio")).resolve()
 ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -186,6 +187,10 @@ def extract_video_info(url: str) -> dict[str, Any]:
 def public_error(exc: Exception) -> str:
     message = str(exc).strip()
     lowered = message.lower()
+    if "403" in lowered and any(term in lowered for term in ("http error", "forbidden", "status code")):
+        return "La plataforma rechazó la petición del servidor (HTTP 403). Aunque el video sea público, YouTube puede bloquear solicitudes desde IP de centros de datos como Render. Necesitamos revisar el registro del error para confirmar si es ese caso; Deno y FFmpeg ya están disponibles."
+    if "429" in lowered or "too many requests" in lowered:
+        return "La plataforma está limitando temporalmente las solicitudes (HTTP 429). Espera un momento y vuelve a intentarlo; Vydio no repetirá la petición para evitar aumentar el bloqueo."
     if any(term in lowered for term in (
         "no supported javascript runtime", "javascript runtime", "js challenge",
         "challenge solver", "signature solving", "nsig extraction failed", "yt-dlp-ejs",
@@ -233,12 +238,19 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    try:
+        ejs_version = package_version("yt-dlp-ejs")
+    except PackageNotFoundError:
+        ejs_version = None
     return {
         "status": "ok",
         "service": "vydio-api",
         "version": APP_VERSION,
+        "yt_dlp_version": yt_dlp.version.__version__,
+        "yt_dlp_ejs_version": ejs_version,
         "capabilities": {
             "youtube_js_runtime": shutil.which("deno") is not None,
+            "youtube_ejs_scripts": ejs_version is not None,
             "ffmpeg": shutil.which("ffmpeg") is not None,
         },
     }
