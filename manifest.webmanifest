@@ -11,7 +11,10 @@
   "background_color": "#080d18",
   "theme_color": "#080d18",
   "prefer_related_applications": false,
-  "categories": ["video", "utilities"],
+  "categories": [
+    "video",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "./icons/icon-192.png",
@@ -20,16 +23,10 @@
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "./icons/camera.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }

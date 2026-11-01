@@ -1,4 +1,4 @@
-const CACHE_NAME = "vydio-app-shell-v7";
+const CACHE_NAME = "vydio-app-shell-v8";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,11 +6,10 @@ const APP_SHELL = [
   "./app.js",
   "./config.js",
   "./manifest.webmanifest",
+  "./icons/camera.svg",
   "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png"
 ];
 
 self.addEventListener("install", event => {
