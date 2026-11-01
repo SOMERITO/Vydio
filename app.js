@@ -177,9 +177,6 @@ function renderGallery(data) {
   });
 
   galleryResults.classList.remove("hidden");
-  if (data.truncated) {
-    setFeedback("Carrusel detectado. Por seguridad, se muestran las primeras " + data.images.length + " imágenes.", "warning");
-  }
   updateGallerySelection();
 }
 
@@ -296,7 +293,9 @@ async function analyzeVideo() {
       analyzedGallery = data;
       renderGallery(data);
       setFeedback(
-        "Carrusel detectado: " + data.image_count + " imágenes listas para seleccionar.",
+        data.truncated
+          ? "Carrusel detectado: se muestran las primeras " + data.image_count + " imágenes."
+          : "Carrusel detectado: " + data.image_count + " imágenes listas para seleccionar.",
         data.truncated ? "warning" : "success"
       );
       return;

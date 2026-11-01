@@ -19,6 +19,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 import yt_dlp
 from gallery_dl import config as gallery_config
+from gallery_dl import extractor as gallery_extractor
 from gallery_dl import job as gallery_job
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -89,6 +90,17 @@ class TikTokGalleryInfoJob(gallery_job.Job):
 
     def handle_directory(self, kwdict: dict[str, Any]) -> None:
         self.post.update(kwdict)
+
+    def handle_queue(self, url: str, kwdict: dict[str, Any]) -> None:
+        extractor_class = kwdict.get("_extractor")
+        child_extractor = extractor_class.from_url(url) if extractor_class else gallery_extractor.find(url)
+        if not child_extractor:
+            return
+        child_job = self.__class__(child_extractor)
+        child_job.run()
+        self.images.extend(child_job.images)
+        if child_job.post:
+            self.post.update(child_job.post)
 
     def handle_url(self, url: str, kwdict: dict[str, Any]) -> None:
         if kwdict.get("type") != "image":
