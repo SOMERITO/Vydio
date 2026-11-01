@@ -112,9 +112,9 @@ def now() -> float:
     return time.time()
 
 
-def base_ydl_options() -> dict[str, Any]:
-    return {
-        "quiet": True,
+def base_ydl_options(*, verbose: bool = False) -> dict[str, Any]:
+    options = {
+        "quiet": not verbose,
         "no_warnings": True,
         "noplaylist": True,
         "ignoreerrors": False,
@@ -129,11 +129,17 @@ def base_ydl_options() -> dict[str, Any]:
         "restrictfilenames": True,
         "max_filesize": MAX_FILE_SIZE,
     }
+    if verbose:
+        options.update({
+            "verbose": True,
+            "no_warnings": False,
+        })
+    return options
 
 
-def extract_video_info(url: str) -> dict[str, Any]:
+def extract_video_info(url: str, *, verbose: bool = False) -> dict[str, Any]:
     safe_url = validate_video_url(url)
-    options = base_ydl_options()
+    options = base_ydl_options(verbose=verbose)
     options["skip_download"] = True
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(safe_url, download=False)
@@ -261,7 +267,13 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> dict[str, Any]:
     rate_limit(request)
     safe_url = validate_video_url(payload.url)
     try:
-        info = await run_in_threadpool(extract_video_info, safe_url)
+        logger.info(
+            "Starting detailed analysis: host=%s yt_dlp=%s deno=%s",
+            urlparse(safe_url).hostname,
+            yt_dlp.version.__version__,
+            bool(shutil.which("deno")),
+        )
+        info = await run_in_threadpool(extract_video_info, safe_url, verbose=True)
     except HTTPException:
         raise
     except Exception as exc:
