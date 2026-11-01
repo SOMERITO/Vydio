@@ -22,3 +22,5 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
+      - name: Build backend Docker image (Deno + FFmpeg)
+        run: docker build --pull -f backend/Dockerfile -t vydio-api:ci .
