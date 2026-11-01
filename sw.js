@@ -1,4 +1,4 @@
-const CACHE_NAME = "vydio-app-shell-v1";
+const CACHE_NAME = "vydio-app-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -38,7 +38,7 @@ self.addEventListener("fetch", event => {
   if (requestUrl.origin !== scopeUrl.origin || !requestUrl.pathname.startsWith(scopeUrl.pathname)) return;
 
   const isNavigation = request.mode === "navigate";
-  const isAppAsset = /\\.(?:css|js|png|webmanifest)$/i.test(requestUrl.pathname);
+  const isAppAsset = /\.(?:css|js|png|webmanifest)$/i.test(requestUrl.pathname);
   if (!isNavigation && !isAppAsset) return;
 
   event.respondWith((async () => {
