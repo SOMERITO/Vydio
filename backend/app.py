@@ -4,6 +4,7 @@ import ipaddress
 import logging
 import mimetypes
 import os
+import re
 from importlib.metadata import PackageNotFoundError, version as package_version
 import shutil
 import threading
@@ -403,6 +404,7 @@ def health() -> dict[str, Any]:
             "youtube_js_runtime": shutil.which("deno") is not None,
             "youtube_ejs_scripts": ejs_version is not None,
             "ffmpeg": shutil.which("ffmpeg") is not None,
+            "tiktok_photo_galleries": True,
         },
     }
 

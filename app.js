@@ -23,6 +23,14 @@ const setupApiLink = document.querySelector("#setup-api-link");
 const installAppButton = document.querySelector("#install-app-button");
 const globalLoading = document.querySelector("#global-loading");
 const downloadProgressTrack = document.querySelector("#download-progress .progress-track");
+const galleryResults = document.querySelector("#gallery-results");
+const galleryGrid = document.querySelector("#gallery-grid");
+const gallerySelectAllButton = document.querySelector("#gallery-select-all");
+const gallerySelectedCount = document.querySelector("#gallery-selected-count");
+const galleryDownloadButton = document.querySelector("#gallery-download-btn");
+let analyzedGallery = null;
+let gallerySelected = new Set();
+let activeDownloadKind = "video";
 
 const API_BASE = String(window.VYDIO_API_BASE || "").trim().replace(/\/+$/, "");
 let qualityMode = "auto";
@@ -75,6 +83,115 @@ function setDownloadBusy(busy) {
   if (busy) downloadLabel.textContent = "Preparando descarga…";
   else updateDownloadLabel();
 }
+
+function setGalleryBusy(busy) {
+  if (!galleryDownloadButton) return;
+  galleryDownloadButton.disabled = busy || gallerySelected.size === 0;
+  galleryDownloadButton.classList.toggle("is-loading", busy);
+  galleryDownloadButton.setAttribute("aria-busy", String(busy));
+  const label = galleryDownloadButton.querySelector("span");
+  if (label) label.textContent = busy ? "Preparando ZIP…" : "Descargar selección (ZIP)";
+}
+
+function updateGallerySelection() {
+  if (!analyzedGallery) return;
+  const total = analyzedGallery.images.length;
+  const selected = gallerySelected.size;
+  if (gallerySelectedCount) {
+    gallerySelectedCount.textContent = selected + " de " + total + " imágenes seleccionadas";
+  }
+  if (gallerySelectAllButton) {
+    gallerySelectAllButton.textContent = selected === total ? "Deseleccionar todas" : "Seleccionar todas";
+  }
+  setGalleryBusy(false);
+}
+
+function renderGallery(data) {
+  if (!galleryGrid || !galleryResults) return;
+  galleryGrid.replaceChildren();
+  gallerySelected = new Set(data.images.map(image => image.index));
+  const heading = document.querySelector("#gallery-title");
+  const description = document.querySelector("#gallery-description");
+  if (heading) heading.textContent = data.title || "Carrusel de TikTok";
+  if (description) {
+    const owner = data.uploader ? "@" + data.uploader + " · " : "";
+    description.textContent = owner + data.image_count + " imágenes · resolución original disponible";
+  }
+
+  data.images.forEach(imageData => {
+    const card = document.createElement("article");
+    card.className = "gallery-image-card";
+
+    const media = document.createElement("div");
+    media.className = "gallery-image-media";
+    const image = document.createElement("img");
+    image.src = apiUrl(imageData.preview_url);
+    image.alt = "Imagen " + imageData.index + " del carrusel";
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.referrerPolicy = "no-referrer";
+    media.appendChild(image);
+
+    const selection = document.createElement("label");
+    selection.className = "gallery-select-control";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    checkbox.setAttribute("aria-label", "Seleccionar imagen " + imageData.index);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) gallerySelected.add(imageData.index);
+      else gallerySelected.delete(imageData.index);
+      updateGallerySelection();
+    });
+    const checkmark = document.createElement("span");
+    checkmark.setAttribute("aria-hidden", "true");
+    selection.append(checkbox, checkmark);
+    media.appendChild(selection);
+
+    const number = document.createElement("span");
+    number.className = "gallery-image-number";
+    number.textContent = String(imageData.index).padStart(2, "0");
+    media.appendChild(number);
+
+    const details = document.createElement("div");
+    details.className = "gallery-image-details";
+    const name = document.createElement("strong");
+    name.textContent = "Imagen " + imageData.index;
+    const dimensions = document.createElement("small");
+    dimensions.textContent = imageData.width && imageData.height
+      ? imageData.width + " × " + imageData.height + " · Original"
+      : "Máxima calidad disponible";
+    details.append(name, dimensions);
+
+    const individual = document.createElement("a");
+    individual.className = "gallery-single-download";
+    individual.href = apiUrl(imageData.download_url);
+    individual.textContent = "Descargar";
+    individual.setAttribute("download", "");
+    individual.rel = "nofollow";
+    individual.setAttribute("aria-label", "Descargar imagen " + imageData.index);
+    details.appendChild(individual);
+
+    card.append(media, details);
+    galleryGrid.appendChild(card);
+  });
+
+  galleryResults.classList.remove("hidden");
+  if (data.truncated) {
+    setFeedback("Carrusel detectado. Por seguridad, se muestran las primeras " + data.images.length + " imágenes.", "warning");
+  }
+  updateGallerySelection();
+}
+
+gallerySelectAllButton?.addEventListener("click", () => {
+  if (!analyzedGallery) return;
+  if (gallerySelected.size === analyzedGallery.images.length) gallerySelected.clear();
+  else gallerySelected = new Set(analyzedGallery.images.map(image => image.index));
+  galleryGrid.querySelectorAll('input[type="checkbox"]').forEach((checkbox, position) => {
+    checkbox.checked = gallerySelected.has(analyzedGallery.images[position].index);
+  });
+  updateGallerySelection();
+});
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds)) return "Duración no disponible";
@@ -155,8 +272,12 @@ async function analyzeVideo() {
 
   clearTimeout(pollingTimer);
   analyzedVideo = null;
+  analyzedGallery = null;
+  galleryResults?.classList.add("hidden");
   resultsPanel.classList.add("hidden");
   thumbnailWrap?.classList.add("hidden");
+  progressPanel.classList.add("hidden");
+  fileLink.classList.add("hidden");
   progressPanel.classList.add("hidden");
   fileLink.classList.add("hidden");
   setBusy(analyzeButton, true, "Analizando…");
@@ -170,6 +291,18 @@ async function analyzeVideo() {
       body: JSON.stringify({ url: parsed.href })
     });
     const data = await readApiResponse(response);
+    if (data.media_type === "image_gallery") {
+      analyzedVideo = null;
+      analyzedGallery = data;
+      renderGallery(data);
+      setFeedback(
+        "Carrusel detectado: " + data.image_count + " imágenes listas para seleccionar.",
+        data.truncated ? "warning" : "success"
+      );
+      return;
+    }
+    analyzedGallery = null;
+    galleryResults?.classList.add("hidden");
     analyzedVideo = data;
     titleEl.textContent = data.title || "Video detectado";
     if (data.thumbnail && /^https:\/\//i.test(data.thumbnail)) {
@@ -205,11 +338,13 @@ async function analyzeVideo() {
 }
 
 async function startDownload() {
-  if (!analyzedVideo) return setFeedback("Primero analiza un enlace compatible.", "error");
+  if (!analyzedVideo) return setFeedback("Primero analiza un enlace de video compatible.", "error");
+  activeDownloadKind = "video";
   const selectedHeight = qualityMode === "manual" ? Number(qualitySelect.value) : null;
   if (qualityMode === "manual" && !selectedHeight) return setFeedback("Selecciona una resolución disponible.", "error");
 
   setDownloadBusy(true);
+  setGalleryBusy(false);
   setGlobalLoading(true);
   setFeedback("Preparando la descarga en el servidor…", "loading");
   fileLink.classList.add("hidden");
@@ -239,6 +374,41 @@ async function startDownload() {
   }
 }
 
+async function startGalleryDownload() {
+  if (!analyzedGallery) return setFeedback("Primero analiza un carrusel de TikTok.", "error");
+  const selected = [...gallerySelected].sort((a, b) => a - b);
+  if (!selected.length) return setFeedback("Selecciona al menos una imagen.", "error");
+
+  activeDownloadKind = "gallery";
+  setGalleryBusy(true);
+  setGlobalLoading(true);
+  setFeedback("Preparando el ZIP con las imágenes seleccionadas…", "loading");
+  fileLink.classList.add("hidden");
+  progressPanel.classList.remove("hidden");
+  downloadProgressTrack?.classList.add("is-indeterminate");
+  progressBar.style.width = "0%";
+  progressValue.textContent = "0%";
+  progressMessage.textContent = "Enviando las imágenes al servidor…";
+  try {
+    const response = await fetch(apiUrl("/api/gallery-download"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        gallery_id: analyzedGallery.gallery_id,
+        image_indices: selected
+      })
+    });
+    const data = await readApiResponse(response);
+    activeJobId = data.job_id;
+    pollJob(activeJobId);
+  } catch (error) {
+    setGalleryBusy(false);
+    progressPanel.classList.add("hidden");
+    setGlobalLoading(false);
+    setFeedback(error.message || "No se pudo iniciar el ZIP.", "error");
+  }
+}
+
 async function pollJob(jobId) {
   try {
     const response = await fetch(apiUrl("/api/jobs/" + encodeURIComponent(jobId)));
@@ -258,18 +428,26 @@ async function pollJob(jobId) {
     if (job.status === "finished" && job.download_ready) {
       fileLink.href = apiUrl("/api/jobs/" + encodeURIComponent(jobId) + "/file");
       fileLink.classList.remove("hidden");
-      progressMessage.textContent = "Archivo listo: " + (job.filename || "video");
+      const readyName = job.filename || (activeDownloadKind === "gallery" ? "ZIP del carrusel" : "video");
+      progressMessage.textContent = "Archivo listo: " + readyName;
+      fileLink.lastChild.textContent = activeDownloadKind === "gallery"
+        ? " Descargar ZIP (" + readyName + ")"
+        : " Descargar archivo preparado (" + readyName + ")";
       progressBar.style.width = "100%";
       progressValue.textContent = "100%";
       downloadProgressTrack?.classList.remove("is-indeterminate");
       setDownloadBusy(false);
+      setGalleryBusy(false);
       setGlobalLoading(false);
-      setFeedback("La descarga está preparada. Pulsa «Descargar archivo» para guardarla.", "success");
+      setFeedback(activeDownloadKind === "gallery"
+        ? "El ZIP del carrusel está listo. Pulsa el enlace para guardarlo."
+        : "La descarga está preparada. Pulsa el enlace para guardarla.", "success");
       return;
     }
     if (job.status === "error") {
       downloadProgressTrack?.classList.remove("is-indeterminate");
       setDownloadBusy(false);
+      setGalleryBusy(false);
       setGlobalLoading(false);
       setFeedback(job.message || "No se pudo preparar el archivo.", "error");
       return;
@@ -278,6 +456,7 @@ async function pollJob(jobId) {
   } catch (error) {
     downloadProgressTrack?.classList.remove("is-indeterminate");
     setDownloadBusy(false);
+    setGalleryBusy(false);
     setGlobalLoading(false);
     setFeedback(error.message || "Se perdió la conexión con el servidor.", "error");
   }
@@ -285,6 +464,7 @@ async function pollJob(jobId) {
 
 analyzeButton.addEventListener("click", analyzeVideo);
 downloadButton.addEventListener("click", startDownload);
+galleryDownloadButton?.addEventListener("click", startGalleryDownload);
 urlInput.addEventListener("keydown", event => {
   if (event.key === "Enter") analyzeVideo();
 });

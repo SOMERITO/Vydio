@@ -11,7 +11,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <meta name="description" content="Vydio: descarga tus videos desde enlaces compatibles y elige siempre la calidad que necesitas." />
+  <meta name="description" content="Vydio: descarga videos y carruseles de imágenes desde enlaces públicos compatibles." />
   <title>Vydio — Descargas de video en alta calidad</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +54,7 @@
       <div class="hero-copy">
         <div class="eyebrow"><span class="eyebrow-spark">✦</span> TU ESPACIO PARA VIDEO</div>
         <h1 id="hero-title">Tus videos,<br><span>en su mejor calidad.</span></h1>
-        <p class="hero-description">Una forma sencilla de preparar tus descargas. Pega un enlace compatible, revisa las resoluciones disponibles y elige cómo guardar tu video.</p>
+        <p class="hero-description">Una forma sencilla de guardar tu contenido. Pega un enlace compatible y Vydio detectará automáticamente si contiene un video o un carrusel de imágenes.</p>
 
         <div class="hero-benefits">
           <div class="hero-benefit">
@@ -85,11 +85,11 @@
         </div>
 
         <div class="panel-heading">
-          <h2 id="panel-title">Pega el enlace del video</h2>
-          <p>Comenzaremos detectando las opciones disponibles.</p>
+          <h2 id="panel-title">Pega el enlace de tu contenido</h2>
+          <p>Detectaremos videos y carruseles de imágenes compatibles.</p>
         </div>
 
-        <label class="field-label" for="video-url">ENLACE DEL VIDEO</label>
+        <label class="field-label" for="video-url">ENLACE DEL CONTENIDO</label>
         <div class="url-input-wrap">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5a4.5 4.5 0 0 0 6.36 0l3-3a4.5 4.5 0 0 0-6.36-6.36l-1.72 1.72"/><path d="M14 10.5a4.5 4.5 0 0 0-6.36 0l-3 3A4.5 4.5 0 0 0 11 19.86l1.72-1.72"/></svg>
           <input id="video-url" type="url" inputmode="url" placeholder="Pega aquí el enlace de tu video" autocomplete="off" spellcheck="false" aria-describedby="url-helper" />
@@ -144,12 +144,37 @@
           <div class="download-actions">
             <button id="download-btn" class="analyze-btn" type="button"><span id="download-label">Descargar máxima calidad</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v13m0 0 5-5m-5 5-5-5M5 21h14"/></svg></button>
           </div>
-          <div id="download-progress" class="download-progress hidden">
-            <div class="progress-caption"><span id="progress-message">Preparando descarga…</span><strong id="progress-value">0%</strong></div>
-            <div class="progress-track is-indeterminate"><div id="progress-bar"></div></div>
-          </div>
-          <a id="file-link" class="file-link hidden" href="#" rel="nofollow"><span>↓</span> Descargar archivo preparado</a>
         </section>
+
+        <section id="gallery-results" class="gallery-results hidden" aria-live="polite">
+          <div class="gallery-heading">
+            <div class="gallery-heading-icon" aria-hidden="true">▦</div>
+            <div class="gallery-heading-copy">
+              <span class="result-kicker"><span></span> CARRUSEL DETECTADO</span>
+              <h2 id="gallery-title">Carrusel de TikTok</h2>
+              <p id="gallery-description">Imágenes en resolución original</p>
+            </div>
+            <span class="gallery-original-badge">ORIGINAL</span>
+          </div>
+          <div class="gallery-toolbar">
+            <div class="gallery-selection">
+              <strong id="gallery-selected-count">0 imágenes seleccionadas</strong>
+              <button id="gallery-select-all" class="gallery-select-all" type="button">Deseleccionar todas</button>
+            </div>
+            <button id="gallery-download-btn" class="analyze-btn gallery-download-btn" type="button">
+              <span>Descargar selección (ZIP)</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v13m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
+            </button>
+          </div>
+          <div id="gallery-grid" class="gallery-grid"></div>
+          <p class="gallery-note">Las fotos se conservan en su resolución original cuando TikTok la proporciona. Puedes descargar cada una por separado o reunir tu selección en un ZIP.</p>
+        </section>
+
+        <div id="download-progress" class="download-progress hidden">
+          <div class="progress-caption"><span id="progress-message">Preparando descarga…</span><strong id="progress-value">0%</strong></div>
+          <div class="progress-track is-indeterminate"><div id="progress-bar"></div></div>
+        </div>
+        <a id="file-link" class="file-link hidden" href="#" rel="nofollow"><span>↓</span><span>Descargar archivo preparado</span></a>
 
         <div class="panel-footnote"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-3Z"/></svg> Tus enlaces se procesan de forma segura.</div>
       </section>
@@ -168,13 +193,13 @@
 
     <section class="how-section" id="how-it-works" aria-labelledby="how-title">
       <div class="section-heading">
-        <div><span class="section-overline">SIN COMPLICACIONES</span><h2 id="how-title">De un enlace a tu video.<br><span>En tres pasos.</span></h2></div>
+        <div><span class="section-overline">SIN COMPLICACIONES</span><h2 id="how-title">De un enlace a tu contenido.<br><span>En tres pasos.</span></h2></div>
         <p>Una experiencia clara desde el primer clic, con el control de calidad siempre en tus manos.</p>
       </div>
       <div class="steps-grid">
         <article class="step-card"><span class="step-number">01</span><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M10 13.5a4.5 4.5 0 0 0 6.36 0l3-3a4.5 4.5 0 0 0-6.36-6.36l-1.72 1.72"/><path d="M14 10.5a4.5 4.5 0 0 0-6.36 0l-3 3A4.5 4.5 0 0 0 11 19.86l1.72-1.72"/></svg></div><h3>Pega tu enlace</h3><p>Copia la dirección de un video público de una plataforma compatible.</p></article>
-        <article class="step-card"><span class="step-number">02</span><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="19" r="2"/></svg></div><h3>Elige la calidad</h3><p>Deja que Vydio seleccione la mejor o escoge una resolución disponible.</p></article>
-        <article class="step-card"><span class="step-number">03</span><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v4h16v-4"/></svg></div><h3>Descarga tu archivo</h3><p>Prepara el video y guárdalo en tu dispositivo cuando esté listo.</p></article>
+        <article class="step-card"><span class="step-number">02</span><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="9" cy="5" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="19" r="2"/></svg></div><h3>Revisa los medios</h3><p>Vydio detecta si la publicación contiene un video o un carrusel de imágenes.</p></article>
+        <article class="step-card"><span class="step-number">03</span><div class="step-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v4h16v-4"/></svg></div><h3>Descarga tu contenido</h3><p>Guarda el video o tus imágenes individuales y también en un ZIP.</p></article>
       </div>
     </section>
 

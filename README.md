@@ -76,3 +76,13 @@ The Render free instance may sleep when idle, so the first request after inactiv
 Defaults: 512 MiB maximum file size, 45 minutes maximum duration, two simultaneous jobs, 12 API requests per minute per client and 30-minute job/file expiry. Tune these environment variables for your deployment.
 
 Only download media that you own or are authorized to save, and follow the source platform's terms and applicable law. Vydio only accepts HTTPS links from its configured platform allowlist. It does not bypass DRM, private accounts, paywalls, login requirements or access controls. The server is a public service once deployed; review resource limits and hosting costs before sharing it widely.
+
+
+## TikTok photo carousels
+
+Vydio uses `gallery-dl` to detect public TikTok photo-mode posts and extract each slide, while `yt-dlp` remains responsible for video downloads. The frontend previews carousel images through the API, supports individual image downloads, and can package selected images into a ZIP. The image extractor is limited to public post URLs and approved TikTok CDN hosts; private posts and login challenges are not bypassed.
+
+Environment controls:
+- `MAX_GALLERY_IMAGES` (default: 80)
+- `MAX_IMAGE_SIZE_MB` (default: 25)
+- `MAX_GALLERY_SIZE_MB` (default: 512)
