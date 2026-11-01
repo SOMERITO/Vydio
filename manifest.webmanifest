@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Vydio — Descargas de video",
   "short_name": "Vydio",
-  "description": "Prepara descargas de video desde enlaces públicos compatibles y elige la mejor calidad disponible.",
+  "description": "Descarga videos y carruseles de imágenes desde enlaces públicos compatibles.",
   "lang": "es",
   "start_url": "./?source=homescreen",
   "scope": "./",

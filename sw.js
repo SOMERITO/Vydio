@@ -1,4 +1,4 @@
-const CACHE_NAME = "vydio-app-shell-v6";
+const CACHE_NAME = "vydio-app-shell-v7";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./app.js",
   "./config.js",
   "./manifest.webmanifest",
+  "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
