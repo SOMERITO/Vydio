@@ -335,3 +335,32 @@ if ("serviceWorker" in navigator) {
       .catch(error => console.warn("Vydio offline support could not be enabled:", error));
   });
 }
+
+
+/* Progressive reveal motion: animate sections as they enter the viewport. */
+(() => {
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion || !("IntersectionObserver" in window)) return;
+
+  const targets = document.querySelectorAll(
+    ".hero-copy, .download-panel, .platform-section, .section-heading, .step-card, .responsible-notice"
+  );
+  if (!targets.length) return;
+
+  document.documentElement.classList.add("motion-enabled");
+  const observer = new IntersectionObserver((entries, instance) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      instance.unobserve(entry.target);
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -36px 0px" });
+
+  targets.forEach((element, index) => {
+    element.classList.add("reveal-on-scroll");
+    if (element.classList.contains("step-card")) {
+      element.style.setProperty("--reveal-delay", (index % 3) * 90 + "ms");
+    }
+    observer.observe(element);
+  });
+})();
