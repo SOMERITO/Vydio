@@ -21,6 +21,8 @@ const thumbnailWrap = document.querySelector("#analysis-preview");
 const thumbnail = document.querySelector("#analysis-thumbnail");
 const setupApiLink = document.querySelector("#setup-api-link");
 const installAppButton = document.querySelector("#install-app-button");
+const globalLoading = document.querySelector("#global-loading");
+const downloadProgressTrack = document.querySelector("#download-progress .progress-track");
 
 const API_BASE = String(window.VYDIO_API_BASE || "").trim().replace(/\/+$/, "");
 let qualityMode = "auto";
@@ -38,9 +40,40 @@ function setFeedback(message, kind = "info") {
   feedback.dataset.kind = kind;
 }
 
+function setGlobalLoading(active, progress = null) {
+  if (!globalLoading) return;
+  globalLoading.hidden = !active;
+  if (!active) {
+    globalLoading.dataset.mode = "indeterminate";
+    globalLoading.style.removeProperty("--loading-progress");
+    globalLoading.removeAttribute("aria-valuenow");
+    return;
+  }
+  if (Number.isFinite(progress)) {
+    const safeProgress = Math.max(0, Math.min(100, progress));
+    globalLoading.dataset.mode = "determinate";
+    globalLoading.style.setProperty("--loading-progress", safeProgress + "%");
+    globalLoading.setAttribute("aria-valuenow", String(Math.round(safeProgress)));
+  } else {
+    globalLoading.dataset.mode = "indeterminate";
+    globalLoading.style.removeProperty("--loading-progress");
+    globalLoading.removeAttribute("aria-valuenow");
+  }
+}
+
 function setBusy(button, busy, text) {
   button.disabled = busy;
+  button.classList.toggle("is-loading", busy);
+  button.setAttribute("aria-busy", String(busy));
   if (text) button.querySelector("span").textContent = text;
+}
+
+function setDownloadBusy(busy) {
+  downloadButton.disabled = busy;
+  downloadButton.classList.toggle("is-loading", busy);
+  downloadButton.setAttribute("aria-busy", String(busy));
+  if (busy) downloadLabel.textContent = "Preparando descarga…";
+  else updateDownloadLabel();
 }
 
 function formatDuration(seconds) {
@@ -127,7 +160,8 @@ async function analyzeVideo() {
   progressPanel.classList.add("hidden");
   fileLink.classList.add("hidden");
   setBusy(analyzeButton, true, "Analizando…");
-  setFeedback("Consultando la fuente y detectando formatos disponibles.");
+  setGlobalLoading(true);
+  setFeedback("Analizando el enlace y buscando calidades disponibles…", "loading");
 
   try {
     const response = await fetch(apiUrl("/api/analyze"), {
@@ -166,6 +200,7 @@ async function analyzeVideo() {
     if (notConfigured) setupApiLink?.classList.remove("hidden");
   } finally {
     setBusy(analyzeButton, false, "Analizar enlace");
+    setGlobalLoading(false);
   }
 }
 
@@ -174,9 +209,12 @@ async function startDownload() {
   const selectedHeight = qualityMode === "manual" ? Number(qualitySelect.value) : null;
   if (qualityMode === "manual" && !selectedHeight) return setFeedback("Selecciona una resolución disponible.", "error");
 
-  downloadButton.disabled = true;
+  setDownloadBusy(true);
+  setGlobalLoading(true);
+  setFeedback("Preparando la descarga en el servidor…", "loading");
   fileLink.classList.add("hidden");
   progressPanel.classList.remove("hidden");
+  progressTrack?.classList.add("is-indeterminate");
   progressBar.style.width = "0%";
   progressValue.textContent = "0%";
   progressMessage.textContent = "Enviando solicitud al servidor…";
@@ -195,7 +233,8 @@ async function startDownload() {
     pollJob(activeJobId);
   } catch (error) {
     progressPanel.classList.add("hidden");
-    downloadButton.disabled = false;
+    setDownloadBusy(false);
+    setGlobalLoading(false);
     setFeedback(error.message || "No se pudo iniciar la descarga.", "error");
   }
 }
@@ -204,10 +243,17 @@ async function pollJob(jobId) {
   try {
     const response = await fetch(apiUrl("/api/jobs/" + encodeURIComponent(jobId)));
     const job = await readApiResponse(response);
-    const percent = Number.isFinite(job.progress) ? job.progress : 0;
+    const percent = Number.isFinite(job.progress) ? Math.max(0, Math.min(100, job.progress)) : 0;
     progressBar.style.width = percent + "%";
     progressValue.textContent = percent + "%";
     progressMessage.textContent = job.message || "Procesando…";
+    if (percent > 0) {
+      downloadProgressTrack?.classList.remove("is-indeterminate");
+      setGlobalLoading(true, percent);
+    } else {
+      downloadProgressTrack?.classList.add("is-indeterminate");
+      setGlobalLoading(true);
+    }
 
     if (job.status === "finished" && job.download_ready) {
       fileLink.href = apiUrl("/api/jobs/" + encodeURIComponent(jobId) + "/file");
@@ -215,18 +261,24 @@ async function pollJob(jobId) {
       progressMessage.textContent = "Archivo listo: " + (job.filename || "video");
       progressBar.style.width = "100%";
       progressValue.textContent = "100%";
-      downloadButton.disabled = false;
+      downloadProgressTrack?.classList.remove("is-indeterminate");
+      setDownloadBusy(false);
+      setGlobalLoading(false);
       setFeedback("La descarga está preparada. Pulsa «Descargar archivo» para guardarla.", "success");
       return;
     }
     if (job.status === "error") {
-      downloadButton.disabled = false;
+      downloadProgressTrack?.classList.remove("is-indeterminate");
+      setDownloadBusy(false);
+      setGlobalLoading(false);
       setFeedback(job.message || "No se pudo preparar el archivo.", "error");
       return;
     }
     pollingTimer = setTimeout(() => pollJob(jobId), 1400);
   } catch (error) {
-    downloadButton.disabled = false;
+    downloadProgressTrack?.classList.remove("is-indeterminate");
+    setDownloadBusy(false);
+    setGlobalLoading(false);
     setFeedback(error.message || "Se perdió la conexión con el servidor.", "error");
   }
 }

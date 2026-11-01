@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="global-loading" id="global-loading" role="progressbar" aria-label="Progreso de Vydio" aria-valuemin="0" aria-valuemax="100" data-mode="indeterminate" hidden><span></span></div>
   <div class="page-glow page-glow-a" aria-hidden="true"></div>
   <div class="page-glow page-glow-b" aria-hidden="true"></div>
 
@@ -145,7 +146,7 @@
           </div>
           <div id="download-progress" class="download-progress hidden">
             <div class="progress-caption"><span id="progress-message">Preparando descarga…</span><strong id="progress-value">0%</strong></div>
-            <div class="progress-track"><div id="progress-bar"></div></div>
+            <div class="progress-track is-indeterminate"><div id="progress-bar"></div></div>
           </div>
           <a id="file-link" class="file-link hidden" href="#" rel="nofollow"><span>↓</span> Descargar archivo preparado</a>
         </section>
