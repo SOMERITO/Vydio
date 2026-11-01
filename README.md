@@ -38,7 +38,9 @@ Serve the frontend from a local static server (for example, `python -m http.serv
 
 ## Deploy the API with Render
 
-1. Sign in to Render and choose **New → Blueprint**.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FSOMERITO%2FVydio)
+
+Or sign in to Render and choose **New → Blueprint**.
 2. Connect `SOMERITO/Vydio` and let Render read the root `render.yaml`.
 3. Create the `vydio-api` web service. The Dockerfile installs FFmpeg and the Python dependencies.
 4. When Render gives the service URL, edit `config.js` and set `window.VYDIO_API_BASE` to that origin, e.g. `https://vydio-api.onrender.com`.
