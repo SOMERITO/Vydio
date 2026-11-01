@@ -14,7 +14,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 import yt_dlp
@@ -175,25 +175,39 @@ def fetch_tiktok_image(url: str, max_bytes: int = MAX_IMAGE_SIZE) -> tuple[bytes
         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
     }
     try:
-        with requests.get(safe_url, headers=headers, stream=True, timeout=(8, 25), allow_redirects=True) as response:
-            response.raise_for_status()
-            validate_tiktok_cdn_url(response.url)
-            content_type = response.headers.get("Content-Type", "application/octet-stream").split(";")[0].lower()
-            if not content_type.startswith("image/"):
-                raise ValueError("TikTok no devolvió un archivo de imagen.")
-            length = response.headers.get("Content-Length")
-            if length and int(length) > max_bytes:
-                raise ValueError("La imagen supera el límite de tamaño permitido.")
-            chunks = bytearray()
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                if not chunk:
+        current_url = safe_url
+        for _ in range(4):
+            with requests.get(
+                current_url,
+                headers=headers,
+                stream=True,
+                timeout=(8, 25),
+                allow_redirects=False,
+            ) as response:
+                if response.is_redirect or response.is_permanent_redirect:
+                    location = response.headers.get("Location")
+                    if not location:
+                        raise ValueError("TikTok devolvió una redirección incompleta.")
+                    current_url = validate_tiktok_cdn_url(urljoin(current_url, location))
                     continue
-                chunks.extend(chunk)
-                if len(chunks) > max_bytes:
+                response.raise_for_status()
+                content_type = response.headers.get("Content-Type", "application/octet-stream").split(";")[0].lower()
+                if content_type not in {"image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"}:
+                    raise ValueError("TikTok no devolvió un formato de imagen compatible.")
+                length = response.headers.get("Content-Length")
+                if length and int(length) > max_bytes:
                     raise ValueError("La imagen supera el límite de tamaño permitido.")
-            if not chunks:
-                raise ValueError("La imagen está vacía o ya no está disponible.")
-            return bytes(chunks), content_type
+                chunks = bytearray()
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    if not chunk:
+                        continue
+                    chunks.extend(chunk)
+                    if len(chunks) > max_bytes:
+                        raise ValueError("La imagen supera el límite de tamaño permitido.")
+                if not chunks:
+                    raise ValueError("La imagen está vacía o ya no está disponible.")
+                return bytes(chunks), content_type
+        raise ValueError("TikTok devolvió demasiadas redirecciones.")
     except requests.RequestException as exc:
         raise ValueError("No se pudo obtener una imagen de TikTok. Puede haber expirado o estar temporalmente restringida.") from exc
 
@@ -364,6 +378,8 @@ def public_error(exc: Exception) -> str:
         return "La plataforma indica que el video no está disponible públicamente, es privado o fue retirado."
     if any(term in lowered for term in ("login", "log in", "cookie", "private", "authentication", "checkpoint", "rate-limit", "too many requests")):
         return "La plataforma exige iniciar sesión, el contenido es privado o hay un límite temporal. Vydio no solicita credenciales ni intenta saltar esos controles."
+    if "tiktok no permitió obtener las imágenes" in lowered:
+        return message
     if "unsupported url" in lowered or "no suitable extractor" in lowered:
         return "Este enlace no es compatible actualmente."
     if "ffmpeg" in lowered:
@@ -700,7 +716,7 @@ def create_gallery_download(payload: GalleryDownloadRequest, request: Request) -
         if not gallery:
             raise HTTPException(status_code=404, detail="La galería expiró. Analiza de nuevo el enlace.")
         available = {item["index"] for item in gallery["images"]}
-        selected = payload.image_indices or sorted(available)
+        selected = sorted(available) if payload.image_indices is None else payload.image_indices
         if not selected or len(selected) > MAX_GALLERY_IMAGES:
             raise HTTPException(status_code=422, detail="Selecciona al menos una imagen.")
         if len(set(selected)) != len(selected) or any(index not in available for index in selected):

@@ -4,10 +4,16 @@ on:
   push:
     paths:
       - "backend/**"
+      - "app.js"
+      - "index.html"
+      - "styles.css"
       - ".github/workflows/backend-checks.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "app.js"
+      - "index.html"
+      - "styles.css"
       - ".github/workflows/backend-checks.yml"
 
 jobs:
@@ -22,5 +28,7 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
+      - name: Check frontend JavaScript syntax
+        run: node --check app.js
       - name: Build backend Docker image (Deno + FFmpeg)
         run: docker build --pull -f backend/Dockerfile -t vydio-api:ci .
