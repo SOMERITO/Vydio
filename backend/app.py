@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 ROOT = Path(os.getenv("VYDIO_TEMP_DIR", "/tmp/vydio")).resolve()
 ROOT.mkdir(parents=True, exist_ok=True)
 
