@@ -8,12 +8,14 @@ Vydio is a web frontend plus a separate API for analyzing supported public video
 
 - Responsive static frontend (GitHub Pages compatible).
 - API endpoint for analyzing supported links and listing available video heights.
+- Health diagnostics report yt-dlp, yt-dlp-ejs, Deno and FFmpeg versions/availability.
+- Clearer user-facing distinction between HTTP 403 (often data-center IP restrictions) and HTTP 429 rate limits.
 - Download jobs with status polling and progress.
 - Automatic quality selection or manual maximum-height selection.
 - Temporary file storage with expiry cleanup, file-size/duration limits, request throttling and a small concurrent-download limit.
 - No platform passwords, cookies, session tokens, private-content access, DRM circumvention or login-wall bypass.
 
-The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library. The Docker image installs **Deno** as the JavaScript runtime and the `yt-dlp[default]` dependency group, which includes the EJS challenge scripts needed for current YouTube extraction. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
+The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library (minimum version 2026.10.26). The Docker image installs **Deno** as the JavaScript runtime and the `yt-dlp[default]` dependency group, which includes the EJS challenge scripts needed for current YouTube extraction. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
 
 ## Run locally
 
