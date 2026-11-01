@@ -492,8 +492,12 @@ async function checkApi() {
   apiCheckInProgress = true;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
-  updateApiIndicator("Comprobando servicio…", "checking");
+  const timeoutId = setTimeout(() => controller.abort(), 75000);
+  updateApiIndicator(
+    "Despertando servidor…",
+    "checking",
+    "Render puede tardar alrededor de un minuto en reactivar una instancia gratuita después de un periodo de inactividad."
+  );
 
   try {
     const response = await fetch(apiUrl("/health"), {
@@ -518,7 +522,7 @@ async function checkApi() {
   } catch (error) {
     const timedOut = controller.signal.aborted;
     updateApiIndicator(
-      timedOut ? "Servidor despertando…" : "API sin conexión · reintentando",
+      timedOut ? "El servidor tarda más de lo habitual · reintentando" : "API sin conexión · reintentando",
       "disconnected",
       error?.message || "No fue posible consultar la API."
     );
@@ -526,7 +530,7 @@ async function checkApi() {
       apiRetryTimer = setTimeout(() => {
         apiRetryTimer = null;
         checkApi();
-      }, 15000);
+      }, 10000);
     }
   } finally {
     clearTimeout(timeoutId);

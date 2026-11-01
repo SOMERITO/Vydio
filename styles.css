@@ -573,3 +573,24 @@ h1 span{background:linear-gradient(100deg,#78e7d1 2%,#8daaff 95%);-webkit-backgr
   .gallery-image-details{padding:8px;align-items:flex-start;flex-direction:column}
   .gallery-single-download{align-self:stretch;text-align:center}
 }
+
+
+/* Clear status for Render free-instance wake-up */
+.availability.checking{color:#e9c783}
+.availability.checking i{
+  background:#e9bd69;
+  box-shadow:0 0 0 3px rgba(232,187,106,.13);
+  animation:api-status-pulse 1.5s ease-in-out infinite;
+}
+.availability.disconnected{color:#e5a2a2}
+.availability.disconnected i{
+  background:#e47d7d;
+  box-shadow:0 0 0 3px rgba(228,125,125,.12);
+}
+@keyframes api-status-pulse{
+  0%,100%{opacity:1;box-shadow:0 0 0 3px rgba(232,187,106,.12)}
+  50%{opacity:.55;box-shadow:0 0 0 6px rgba(232,187,106,.035)}
+}
+@media(prefers-reduced-motion:reduce){
+  .availability.checking i{animation:none}
+}
