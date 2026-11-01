@@ -13,7 +13,7 @@ Vydio is a web frontend plus a separate API for analyzing supported public video
 - Temporary file storage with expiry cleanup, file-size/duration limits, request throttling and a small concurrent-download limit.
 - No platform passwords, cookies, session tokens, private-content access, DRM circumvention or login-wall bypass.
 
-The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
+The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library. The Docker image installs **Deno** as the JavaScript runtime and the `yt-dlp[default]` dependency group, which includes the EJS challenge scripts needed for current YouTube extraction. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
 
 ## Run locally
 
@@ -51,7 +51,7 @@ The Render free instance may sleep when idle, so the first request after inactiv
 
 ## API
 
-- `GET /health`
+- `GET /health` (also reports whether Deno and FFmpeg are available)
 - `POST /api/analyze` with `{"url":"https://..." }`
 - `POST /api/download` with `{"url":"https://...","quality_mode":"auto"}` or `{"url":"https://...","quality_mode":"manual","height":720}`
 - `GET /api/jobs/{job_id}`
