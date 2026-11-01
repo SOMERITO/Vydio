@@ -17,6 +17,7 @@ const progressMessage = document.querySelector("#progress-message");
 const progressValue = document.querySelector("#progress-value");
 const fileLink = document.querySelector("#file-link");
 const apiIndicator = document.querySelector("#api-indicator");
+const setupApiLink = document.querySelector("#setup-api-link");
 
 const API_BASE = String(window.VYDIO_API_BASE || "").trim().replace(/\/+$/, "");
 let qualityMode = "auto";
@@ -149,7 +150,9 @@ async function analyzeVideo() {
     updateDownloadLabel();
     setFeedback("Se encontraron " + data.available_heights.length + " resoluciones. La mayor disponible es " + data.best_height + "p.", "success");
   } catch (error) {
-    setFeedback(error.message || "No se pudo analizar este enlace.", "error");
+    const notConfigured = !API_BASE;
+    setFeedback(error.message || "No se pudo analizar este enlace.", notConfigured ? "warning" : "error");
+    if (notConfigured) setupApiLink?.classList.remove("hidden");
   } finally {
     setBusy(analyzeButton, false, "Analizar enlace");
   }
@@ -234,4 +237,5 @@ async function checkApi() {
     apiIndicator.innerHTML = "<i></i> API sin conexión";
   }
 }
+if (!API_BASE) setupApiLink?.classList.remove("hidden");
 checkApi();
