@@ -6,6 +6,8 @@ Vydio is a web frontend plus a separate API for analyzing supported public video
 
 ## Current implementation
 
+- Installable Progressive Web App (PWA) with a web manifest, 192px/512px Android icons, maskable icon, standalone display mode and service-worker app-shell cache.
+- On supported browsers, an **Instalar** button appears when the browser signals that Vydio can be installed. Otherwise use the browser menu → **Instalar aplicación** / **Añadir a pantalla de inicio**.
 - Responsive static frontend (GitHub Pages compatible).
 - API endpoint for analyzing supported links and listing available video heights.
 - Health diagnostics report yt-dlp, yt-dlp-ejs, Deno and FFmpeg versions/availability.
@@ -17,6 +19,15 @@ Vydio is a web frontend plus a separate API for analyzing supported public video
 - No platform passwords, cookies, session tokens, private-content access, DRM circumvention or login-wall bypass.
 
 The API uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) as an extraction library (minimum version 2026.10.26). The Docker image installs **Deno** as the JavaScript runtime and upgrades `yt-dlp[default,curl-cffi]` to the project's recommended **nightly** channel at build time. This includes the EJS challenge scripts needed for current YouTube extraction and lets extractor fixes arrive between stable releases. Supported-site coverage can change, and being listed does not guarantee that every URL will work. Some platforms block automated access or require authentication; Vydio intentionally does not request credentials or attempt to bypass those restrictions.
+
+## Install on Android
+
+1. Open the published Vydio site in Chrome using its HTTPS GitHub Pages URL.
+2. Wait for the page to finish loading and for the service worker to register.
+3. Open Chrome's three-dot menu and choose **Install app** (or **Install and create shortcut** → **Install**). If Chrome exposes the in-page **Instalar** action, it can be used instead.
+4. If the old “No se puede instalar esta app” prompt remains, close it, reload the site after the Pages deployment finishes, and revisit the HTTPS URL. Chrome may need to refresh the manifest/installability data.
+
+The installed PWA opens in a standalone app window, but video analysis/download still requires an internet connection and the Vydio API. The service worker caches only the web app shell; it does not cache API responses or media downloads.
 
 ## Run locally
 
