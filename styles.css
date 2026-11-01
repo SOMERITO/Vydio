@@ -242,3 +242,12 @@ h1 span{background:linear-gradient(100deg,#78e7d1 2%,#8daaff 95%);-webkit-backgr
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* PWA install action */
+.install-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 11px;border:1px solid rgba(117,230,208,.3);border-radius:8px;background:rgba(117,230,208,.075);color:#a9f0e4;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .2s,border-color .2s}
+.install-button:hover{background:rgba(117,230,208,.14);border-color:rgba(117,230,208,.6)}
+.install-button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:620px){
+  .header-actions{gap:9px}
+  .install-button{min-height:30px;padding:0 8px;font-size:9px}
+}
