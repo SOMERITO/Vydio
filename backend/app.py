@@ -2,25 +2,30 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import mimetypes
 import os
 from importlib.metadata import PackageNotFoundError, version as package_version
 import shutil
 import threading
 import time
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import requests
 import yt_dlp
+from gallery_dl import config as gallery_config
+from gallery_dl import job as gallery_job
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-APP_VERSION = "0.2.2"
+APP_VERSION = "0.3.0"
 ROOT = Path(os.getenv("VYDIO_TEMP_DIR", "/tmp/vydio")).resolve()
 ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -29,6 +34,14 @@ MAX_DURATION = int(os.getenv("MAX_DURATION_SECONDS", "2700"))
 MAX_ACTIVE_DOWNLOADS = int(os.getenv("MAX_ACTIVE_DOWNLOADS", "2"))
 JOB_TTL = int(os.getenv("JOB_TTL_SECONDS", "1800"))
 RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MINUTE", "12"))
+MAX_GALLERY_IMAGES = int(os.getenv("MAX_GALLERY_IMAGES", "80"))
+MAX_IMAGE_SIZE = int(os.getenv("MAX_IMAGE_SIZE_MB", "25")) * 1024 * 1024
+MAX_GALLERY_SIZE = min(MAX_FILE_SIZE, int(os.getenv("MAX_GALLERY_SIZE_MB", "512")) * 1024 * 1024)
+TIKTOK_CDN_HOSTS = (
+    "tiktokcdn.com", "tiktokcdn-us.com", "tiktokv.com",
+    "byteoversea.com", "ibytedtos.com", "muscdn.com",
+    "byteicdn.com", "byteimg.com",
+)
 
 ALLOWED_HOSTS = {
     "youtube.com", "youtu.be",
@@ -42,7 +55,9 @@ ALLOWED_HOSTS = {
 }
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov", ".m4v", ".flv", ".avi"}
 jobs: dict[str, dict[str, Any]] = {}
+galleries: dict[str, dict[str, Any]] = {}
 request_times: dict[str, list[float]] = {}
+gallery_config_loaded = False
 lock = threading.RLock()
 executor = ThreadPoolExecutor(max_workers=MAX_ACTIVE_DOWNLOADS, thread_name_prefix="vydio-download")
 logger = logging.getLogger("vydio")
@@ -56,6 +71,130 @@ class DownloadRequest(BaseModel):
     url: str = Field(min_length=8, max_length=2048)
     quality_mode: str = Field(default="auto", pattern="^(auto|manual)$")
     height: int | None = Field(default=None, ge=144, le=4320)
+
+
+class GalleryDownloadRequest(BaseModel):
+    gallery_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    image_indices: list[int] | None = Field(default=None, max_length=80)
+
+
+class TikTokGalleryInfoJob(gallery_job.Job):
+    """Extract TikTok photo URLs and metadata without downloading them."""
+
+    def __init__(self, url: str):
+        super().__init__(url)
+        self.images: list[dict[str, Any]] = []
+        self.post: dict[str, Any] = {}
+
+    def handle_directory(self, kwdict: dict[str, Any]) -> None:
+        self.post.update(kwdict)
+
+    def handle_url(self, url: str, kwdict: dict[str, Any]) -> None:
+        if kwdict.get("type") != "image":
+            return
+        if not isinstance(url, str) or not url.startswith("https://"):
+            return
+        self.images.append({
+            "url": url,
+            "width": int(kwdict.get("width") or 0),
+            "height": int(kwdict.get("height") or 0),
+            "extension": str(kwdict.get("extension") or "jpg").lower(),
+            "index": int(kwdict.get("num") or len(self.images) + 1),
+        })
+
+
+def is_tiktok_url(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower().rstrip(".")
+    return host == "tiktok.com" or host.endswith(".tiktok.com")
+
+
+def is_tiktok_post_url(url: str) -> bool:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path.lower()
+    return is_tiktok_url(url) and (
+        bool(re.search(r"/(?:@[^/]+/)?(?:photo|video)/\d+", path))
+        or "/share/" in path
+        or host.startswith(("vm.", "vt."))
+        or path.startswith("/t/")
+    )
+
+
+def validate_tiktok_cdn_url(value: str) -> str:
+    parsed = urlparse(value)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password:
+        raise ValueError("La dirección de imagen de TikTok no es válida.")
+    if not any(host == domain or host.endswith("." + domain) for domain in TIKTOK_CDN_HOSTS):
+        raise ValueError("TikTok devolvió una dirección multimedia no reconocida.")
+    return parsed.geturl()
+
+
+def extract_tiktok_gallery_info(url: str) -> dict[str, Any] | None:
+    global gallery_config_loaded
+    if not is_tiktok_post_url(url):
+        return None
+    with lock:
+        if not gallery_config_loaded:
+            gallery_config.load()
+            gallery_config_loaded = True
+
+    extractor_job = TikTokGalleryInfoJob(url)
+    status = extractor_job.run()
+    images = extractor_job.images[:MAX_GALLERY_IMAGES]
+    if not images:
+        logger.info("TikTok extractor returned no photo items (status=%s)", status)
+        return None
+
+    safe_images = []
+    for image in images:
+        try:
+            image["url"] = validate_tiktok_cdn_url(image["url"])
+            safe_images.append(image)
+        except ValueError:
+            logger.warning("Skipped a TikTok media URL outside the approved CDN hosts")
+    if not safe_images:
+        return None
+
+    post = extractor_job.post
+    return {
+        "title": str(post.get("title") or post.get("desc") or "Carrusel de TikTok")[:180],
+        "uploader": str(post.get("user") or post.get("uploader") or "")[:100],
+        "post_id": str(post.get("id") or "")[:80],
+        "images": safe_images,
+        "truncated": len(extractor_job.images) > MAX_GALLERY_IMAGES,
+    }
+
+
+def fetch_tiktok_image(url: str, max_bytes: int = MAX_IMAGE_SIZE) -> tuple[bytes, str]:
+    safe_url = validate_tiktok_cdn_url(url)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+        "Referer": "https://www.tiktok.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    }
+    try:
+        with requests.get(safe_url, headers=headers, stream=True, timeout=(8, 25), allow_redirects=True) as response:
+            response.raise_for_status()
+            validate_tiktok_cdn_url(response.url)
+            content_type = response.headers.get("Content-Type", "application/octet-stream").split(";")[0].lower()
+            if not content_type.startswith("image/"):
+                raise ValueError("TikTok no devolvió un archivo de imagen.")
+            length = response.headers.get("Content-Length")
+            if length and int(length) > max_bytes:
+                raise ValueError("La imagen supera el límite de tamaño permitido.")
+            chunks = bytearray()
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                if not chunk:
+                    continue
+                chunks.extend(chunk)
+                if len(chunks) > max_bytes:
+                    raise ValueError("La imagen supera el límite de tamaño permitido.")
+            if not chunks:
+                raise ValueError("La imagen está vacía o ya no está disponible.")
+            return bytes(chunks), content_type
+    except requests.RequestException as exc:
+        raise ValueError("No se pudo obtener una imagen de TikTok. Puede haber expirado o estar temporalmente restringida.") from exc
 
 
 def validate_video_url(value: str) -> str:
@@ -106,6 +245,12 @@ def cleanup_expired_jobs() -> None:
             item = jobs.pop(job_id, None)
             if item:
                 shutil.rmtree(item.get("directory", ""), ignore_errors=True)
+        expired_galleries = [
+            gallery_id for gallery_id, item in galleries.items()
+            if item.get("created_at", now()) < cutoff
+        ]
+        for gallery_id in expired_galleries:
+            galleries.pop(gallery_id, None)
 
 
 def now() -> float:
@@ -273,6 +418,40 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> dict[str, Any]:
             yt_dlp.version.__version__,
             bool(shutil.which("deno")),
         )
+        if is_tiktok_url(safe_url):
+            gallery_info = await run_in_threadpool(extract_tiktok_gallery_info, safe_url)
+            if gallery_info:
+                gallery_id = uuid.uuid4().hex
+                with lock:
+                    galleries[gallery_id] = {
+                        **gallery_info,
+                        "created_at": now(),
+                        "source_url": safe_url,
+                    }
+                return {
+                    "ok": True,
+                    "media_type": "image_gallery",
+                    "gallery_id": gallery_id,
+                    "title": gallery_info["title"],
+                    "uploader": gallery_info["uploader"],
+                    "extractor": "TikTok · Carrusel",
+                    "image_count": len(gallery_info["images"]),
+                    "truncated": gallery_info["truncated"],
+                    "images": [
+                        {
+                            "index": image["index"],
+                            "width": image["width"],
+                            "height": image["height"],
+                            "preview_url": f"/api/galleries/{gallery_id}/images/{image['index']}",
+                            "download_url": f"/api/galleries/{gallery_id}/images/{image['index']}/download",
+                        }
+                        for image in gallery_info["images"]
+                    ],
+                }
+            if "/photo/" in urlparse(safe_url).path.lower():
+                raise ValueError(
+                    "TikTok no permitió obtener las imágenes de esta publicación. Comprueba que el carrusel sea público e inténtalo más tarde."
+                )
         info = await run_in_threadpool(extract_video_info, safe_url, verbose=True)
     except HTTPException:
         raise
@@ -395,6 +574,158 @@ def create_download(payload: DownloadRequest, request: Request) -> dict[str, Any
             "directory": str(directory),
         }
     executor.submit(run_download, job_id, safe_url, payload.quality_mode, payload.height, directory)
+    return {"ok": True, "job_id": job_id, "status": "queued"}
+
+
+
+
+@app.get("/api/galleries/{gallery_id}/images/{image_index}")
+def preview_gallery_image(gallery_id: str, image_index: int) -> Response:
+    cleanup_expired_jobs()
+    with lock:
+        gallery = galleries.get(gallery_id)
+        if not gallery:
+            raise HTTPException(status_code=404, detail="La galería expiró. Analiza de nuevo el enlace.")
+        image = next((item for item in gallery["images"] if item["index"] == image_index), None)
+        if not image:
+            raise HTTPException(status_code=404, detail="No se encontró esa imagen del carrusel.")
+        image_url = image["url"]
+    try:
+        content, media_type = fetch_tiktok_image(image_url)
+    except Exception as exc:
+        logger.warning("TikTok gallery preview failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.get("/api/galleries/{gallery_id}/images/{image_index}/download")
+def download_gallery_image(gallery_id: str, image_index: int, request: Request) -> Response:
+    rate_limit(request)
+    cleanup_expired_jobs()
+    with lock:
+        gallery = galleries.get(gallery_id)
+        if not gallery:
+            raise HTTPException(status_code=404, detail="La galería expiró. Analiza de nuevo el enlace.")
+        image = next((item for item in gallery["images"] if item["index"] == image_index), None)
+        if not image:
+            raise HTTPException(status_code=404, detail="No se encontró esa imagen del carrusel.")
+        image_url = image["url"]
+    try:
+        content, media_type = fetch_tiktok_image(image_url)
+    except Exception as exc:
+        logger.warning("TikTok gallery image download failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    extension = mimetypes.guess_extension(media_type) or ("." + image.get("extension", "jpg"))
+    filename = f"vydio_tiktok_{image_index:02d}{extension}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+def run_gallery_download(job_id: str, gallery: dict[str, Any], selected: list[int], directory: Path) -> None:
+    set_job(job_id, status="analyzing", progress=0, message="Preparando las imágenes seleccionadas.")
+    zip_path = directory / "Vydio_TikTok_carrusel.zip"
+    completed = 0
+    total_bytes = 0
+    failed = 0
+    try:
+        image_by_index = {item["index"]: item for item in gallery["images"]}
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as archive:
+            for position, image_index in enumerate(selected, start=1):
+                image = image_by_index[image_index]
+                set_job(
+                    job_id,
+                    status="downloading",
+                    progress=round((position - 1) * 100 / len(selected)),
+                    message=f"Descargando imagen {position} de {len(selected)}…",
+                )
+                try:
+                    content, media_type = fetch_tiktok_image(image["url"])
+                    total_bytes += len(content)
+                    if total_bytes > MAX_GALLERY_SIZE:
+                        raise ValueError("El ZIP supera el límite total de tamaño permitido.")
+                    extension = mimetypes.guess_extension(media_type) or ("." + image.get("extension", "jpg"))
+                    archive.writestr(f"imagen_{image_index:02d}{extension}", content)
+                    completed += 1
+                except Exception as exc:
+                    failed += 1
+                    logger.warning("Skipped TikTok gallery image %s in job %s: %s", image_index, job_id, exc)
+                set_job(
+                    job_id,
+                    status="downloading",
+                    progress=round(position * 100 / len(selected)),
+                    message=f"Procesadas {position} de {len(selected)} imágenes…",
+                )
+        if completed == 0:
+            raise RuntimeError("No se pudo descargar ninguna imagen del carrusel.")
+        filename = f"Vydio_TikTok_{gallery.get('post_id') or 'carrusel'}.zip"
+        set_job(
+            job_id,
+            status="finished",
+            progress=100,
+            message=(
+                f"ZIP preparado con {completed} imágenes."
+                + (f" No se pudieron obtener {failed}." if failed else "")
+            ),
+            filename=filename,
+            file_size=zip_path.stat().st_size,
+            file_path=str(zip_path),
+            updated_at=now(),
+        )
+    except Exception as exc:
+        logger.exception("TikTok gallery download failed for job_id=%s", job_id)
+        set_job(job_id, status="error", message=str(exc), error=True, updated_at=now())
+
+
+@app.post("/api/gallery-download", status_code=202)
+def create_gallery_download(payload: GalleryDownloadRequest, request: Request) -> dict[str, Any]:
+    rate_limit(request)
+    cleanup_expired_jobs()
+    with lock:
+        gallery = galleries.get(payload.gallery_id)
+        if not gallery:
+            raise HTTPException(status_code=404, detail="La galería expiró. Analiza de nuevo el enlace.")
+        available = {item["index"] for item in gallery["images"]}
+        selected = payload.image_indices or sorted(available)
+        if not selected or len(selected) > MAX_GALLERY_IMAGES:
+            raise HTTPException(status_code=422, detail="Selecciona al menos una imagen.")
+        if len(set(selected)) != len(selected) or any(index not in available for index in selected):
+            raise HTTPException(status_code=422, detail="La selección contiene imágenes no válidas.")
+        active = sum(
+            1 for item in jobs.values()
+            if item.get("status") in {"queued", "analyzing", "downloading", "merging"}
+        )
+        if active >= MAX_ACTIVE_DOWNLOADS:
+            raise HTTPException(status_code=429, detail="Vydio está procesando otras descargas. Inténtalo más tarde.")
+        job_id = uuid.uuid4().hex
+        directory = ROOT / job_id
+        directory.mkdir(parents=True, exist_ok=True)
+        jobs[job_id] = {
+            "id": job_id,
+            "status": "queued",
+            "progress": 0,
+            "message": "Descarga del carrusel en cola.",
+            "created_at": now(),
+            "updated_at": now(),
+            "directory": str(directory),
+        }
+        gallery_snapshot = {
+            "post_id": gallery.get("post_id"),
+            "images": [dict(item) for item in gallery["images"]],
+        }
+    executor.submit(run_gallery_download, job_id, gallery_snapshot, selected, directory)
     return {"ok": True, "job_id": job_id, "status": "queued"}
 
 
