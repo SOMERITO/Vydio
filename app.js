@@ -20,6 +20,7 @@ const apiIndicator = document.querySelector("#api-indicator");
 const thumbnailWrap = document.querySelector("#analysis-preview");
 const thumbnail = document.querySelector("#analysis-thumbnail");
 const setupApiLink = document.querySelector("#setup-api-link");
+const installAppButton = document.querySelector("#install-app-button");
 
 const API_BASE = String(window.VYDIO_API_BASE || "").trim().replace(/\/+$/, "");
 let qualityMode = "auto";
@@ -249,3 +250,36 @@ async function checkApi() {
 }
 if (!API_BASE) setupApiLink?.classList.remove("hidden");
 checkApi();
+
+
+// Progressive Web App installation and offline app-shell support.
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  installAppButton?.classList.remove("hidden");
+});
+
+installAppButton?.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice?.outcome === "accepted") {
+    installAppButton.classList.add("hidden");
+  }
+  deferredInstallPrompt = null;
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  installAppButton?.classList.add("hidden");
+});
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" })
+      .then(registration => registration.update())
+      .catch(error => console.warn("Vydio offline support could not be enabled:", error));
+  });
+}
