@@ -17,6 +17,8 @@ const progressMessage = document.querySelector("#progress-message");
 const progressValue = document.querySelector("#progress-value");
 const fileLink = document.querySelector("#file-link");
 const apiIndicator = document.querySelector("#api-indicator");
+const thumbnailWrap = document.querySelector("#analysis-preview");
+const thumbnail = document.querySelector("#analysis-thumbnail");
 const setupApiLink = document.querySelector("#setup-api-link");
 
 const API_BASE = String(window.VYDIO_API_BASE || "").trim().replace(/\/+$/, "");
@@ -120,6 +122,7 @@ async function analyzeVideo() {
   clearTimeout(pollingTimer);
   analyzedVideo = null;
   resultsPanel.classList.add("hidden");
+  thumbnailWrap?.classList.add("hidden");
   progressPanel.classList.add("hidden");
   fileLink.classList.add("hidden");
   setBusy(analyzeButton, true, "Analizando…");
@@ -134,6 +137,13 @@ async function analyzeVideo() {
     const data = await readApiResponse(response);
     analyzedVideo = data;
     titleEl.textContent = data.title || "Video detectado";
+    if (data.thumbnail && /^https:\/\//i.test(data.thumbnail)) {
+      thumbnail.src = data.thumbnail;
+      thumbnailWrap.classList.remove("hidden");
+    } else {
+      thumbnail.removeAttribute("src");
+      thumbnailWrap.classList.add("hidden");
+    }
     const sourceName = data.extractor || new URL(value).hostname;
     sourceEl.textContent = sourceName + " · " + formatDuration(data.duration);
     bestQualityEl.textContent = data.best_height + "p";
